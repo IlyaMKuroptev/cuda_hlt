@@ -46,6 +46,233 @@ bool check_velopix_events(
   return true;
 }
 
+void read_scifi_events_into_arrays( SciFi::HitsSoA *hits_layers_events,
+                                 uint32_t n_hits_layers_events[][SciFi::Constants::n_zones],
+                                 const std::vector<char> events,
+                                 const std::vector<unsigned int> event_offsets,
+                                 const int n_events ) {
+
+
+  for ( int i_event = 0; i_event < n_events; ++i_event ) {
+    const char* raw_input = events.data() + event_offsets[i_event];
+    int n_hits_total = 0;
+    int accumulated_hits = 0;
+    int accumulated_hits_layers[12];
+    for ( int i_layer = 0; i_layer < SciFi::Constants::n_zones; ++i_layer ) {
+      n_hits_layers_events[i_event][i_layer] = *((uint32_t*)raw_input);
+      n_hits_total += n_hits_layers_events[i_event][i_layer];
+      raw_input += sizeof(uint32_t);
+      assert( n_hits_total < SciFi::Constants::max_numhits_per_event );
+      hits_layers_events[i_event].layer_offset[i_layer] = accumulated_hits;
+      accumulated_hits += n_hits_layers_events[i_event][i_layer];
+    }
+
+    for ( int i_layer = 0; i_layer < SciFi::Constants::n_zones; ++i_layer ) {
+      int layer_offset = hits_layers_events[i_event].layer_offset[i_layer];
+      std::copy_n((float*) raw_input, n_hits_layers_events[i_event][i_layer], &( hits_layers_events[i_event].m_x[ layer_offset ]) );
+      raw_input += sizeof(float) * n_hits_layers_events[i_event][i_layer];
+      std::copy_n((float*) raw_input, n_hits_layers_events[i_event][i_layer], &(hits_layers_events[i_event].m_z[ layer_offset ]) );
+      raw_input += sizeof(float) * n_hits_layers_events[i_event][i_layer];
+      std::copy_n((float*) raw_input, n_hits_layers_events[i_event][i_layer], &(hits_layers_events[i_event].m_w[ layer_offset ]) );
+      raw_input += sizeof(float) * n_hits_layers_events[i_event][i_layer];
+      std::copy_n((float*) raw_input, n_hits_layers_events[i_event][i_layer], &(hits_layers_events[i_event].m_dxdy[ layer_offset ]) );
+      raw_input += sizeof(float) * n_hits_layers_events[i_event][i_layer];
+      std::copy_n((float*) raw_input, n_hits_layers_events[i_event][i_layer], &(hits_layers_events[i_event].m_dzdy[ layer_offset ]) );
+      raw_input += sizeof(float) * n_hits_layers_events[i_event][i_layer];
+      std::copy_n((float*) raw_input, n_hits_layers_events[i_event][i_layer], &(hits_layers_events[i_event].m_yMin[ layer_offset ]) );
+      raw_input += sizeof(float) * n_hits_layers_events[i_event][i_layer];
+      std::copy_n((float*) raw_input, n_hits_layers_events[i_event][i_layer], &(hits_layers_events[i_event].m_yMax[ layer_offset ]) );
+      raw_input += sizeof(float) * n_hits_layers_events[i_event][i_layer];
+      std::copy_n((unsigned int*) raw_input, n_hits_layers_events[i_event][i_layer], &(hits_layers_events[i_event].m_LHCbID[ layer_offset ]) );
+      raw_input += sizeof(unsigned int) * n_hits_layers_events[i_event][i_layer];
+      std::copy_n((int*) raw_input, n_hits_layers_events[i_event][i_layer], &(hits_layers_events[i_event].m_planeCode[ layer_offset ]) );
+      raw_input += sizeof(int) * n_hits_layers_events[i_event][i_layer];
+      std::copy_n((int*) raw_input, n_hits_layers_events[i_event][i_layer], &(hits_layers_events[i_event].m_hitZone[ layer_offset ]) );
+      raw_input += sizeof(int) * n_hits_layers_events[i_event][i_layer];
+
+      for ( int i_hit = 0; i_hit < n_hits_layers_events[i_event][i_layer]; ++i_hit ) {
+        hits_layers_events[i_event].m_planeCode[ layer_offset + i_hit ] = i_layer;
+      }
+    }
+  }
+}
+
+void read_muon_events_into_arrays( Muon::HitsSoA *muon_station_hits,
+                                 const std::vector<char> events,
+                                 const std::vector<unsigned int> event_offsets,
+                                 const int n_events ) {
+  
+  for ( int i_event = 0; i_event < n_events; ++i_event ) {
+
+    const char* raw_input = events.data() + event_offsets[i_event];      
+    std::copy_n((int*) raw_input, Muon::Constants::n_stations, muon_station_hits[i_event].m_number_of_hits_per_station);
+    raw_input += sizeof(int) * Muon::Constants::n_stations;
+
+    muon_station_hits[i_event].m_station_offsets[0] = 0;
+    for(int i_station = 1; i_station < Muon::Constants::n_stations; ++i_station) {
+      muon_station_hits[i_event].m_station_offsets[i_station] = muon_station_hits[i_event].m_station_offsets[i_station - 1] + muon_station_hits[i_event].m_number_of_hits_per_station[i_event - 1];
+    }
+    
+    for(int i_station = 0; i_station < Muon::Constants::n_stations; ++i_station) {
+      const int station_offset = muon_station_hits[i_event].m_station_offsets[i_station];
+      const int number_of_hits = muon_station_hits[i_event].m_number_of_hits_per_station[i_station];
+
+      std::copy_n((int*) raw_input, number_of_hits, &( muon_station_hits[i_event].m_tile[station_offset]) );
+      raw_input += sizeof(int) * number_of_hits;
+
+      std::copy_n((float*) raw_input, number_of_hits, &( muon_station_hits[i_event].m_x[station_offset]) );
+      raw_input += sizeof(int) * number_of_hits;
+
+      std::copy_n((float*) raw_input, number_of_hits, &( muon_station_hits[i_event].m_dx[station_offset]) );
+      raw_input += sizeof(int) * number_of_hits;
+
+      std::copy_n((float*) raw_input, number_of_hits, &( muon_station_hits[i_event].m_y[station_offset]) );
+      raw_input += sizeof(int) * number_of_hits;
+
+      std::copy_n((float*) raw_input, number_of_hits, &( muon_station_hits[i_event].m_dy[station_offset]) );
+      raw_input += sizeof(int) * number_of_hits;
+
+      std::copy_n((float*) raw_input, number_of_hits, &( muon_station_hits[i_event].m_z[station_offset]) );
+      raw_input += sizeof(int) * number_of_hits;
+
+      std::copy_n((float*) raw_input, number_of_hits, &( muon_station_hits[i_event].m_dz[station_offset]) );
+      raw_input += sizeof(int) * number_of_hits;
+
+      std::copy_n((int*) raw_input, number_of_hits, &( muon_station_hits[i_event].m_uncrossed[station_offset]) );
+      raw_input += sizeof(int) * number_of_hits;
+
+      std::copy_n((unsigned int*) raw_input, number_of_hits, &( muon_station_hits[i_event].m_time[station_offset]) );
+      raw_input += sizeof(int) * number_of_hits;
+
+      std::copy_n((int*) raw_input, number_of_hits, &( muon_station_hits[i_event].m_delta_time[station_offset]) );
+      raw_input += sizeof(int) * number_of_hits;
+
+      std::copy_n((int*) raw_input, number_of_hits, &( muon_station_hits[i_event].m_cluster_size[station_offset]) );
+      raw_input += sizeof(int) * number_of_hits;
+    }
+  }
+}
+
+
+// void check_ut_events(
+//   const VeloUTTracking::HitsSoA *hits_layers_events,
+//   const int n_events
+// ) {
+//   float average_number_of_hits_per_event = 0;
+  
+//   for ( int i_event = 0; i_event < n_events; ++i_event ) {
+//     float number_of_hits = 0;
+//     const VeloUTTracking::HitsSoA hits_layers = hits_layers_events[i_event];
+
+//     for ( int i_layer = 0; i_layer < VeloUTTracking::n_layers; ++i_layer ) {
+//       debug_cout << "checks on layer " << i_layer << ", with " << hits_layers.n_hits_layers[i_layer] << " hits" << std::endl;
+//       number_of_hits += hits_layers.n_hits_layers[i_layer];
+//       int layer_offset = hits_layers.layer_offset[i_layer];
+//       for ( int i_hit = 0; i_hit < 3; ++i_hit ) {
+//         printf("\t at hit %u, cos = %f, yBegin = %f, yEnd = %f, zAtyEq0 = %f, xAtyEq0 = %f, weight = %f, highThreshold = %u, LHCbID = %u, dxDy = %f \n",
+//         i_hit,
+//         hits_layers.m_cos[ layer_offset + i_hit ],
+//         hits_layers.m_yBegin[ layer_offset + i_hit ],
+//         hits_layers.m_yEnd[ layer_offset + i_hit ],
+//         hits_layers.m_zAtYEq0[ layer_offset + i_hit ],
+//         hits_layers.m_xAtYEq0[ layer_offset + i_hit ],
+//         hits_layers.m_weight[ layer_offset + i_hit ],
+//         hits_layers.m_highThreshold[ layer_offset + i_hit ],
+//         hits_layers.m_LHCbID[ layer_offset + i_hit ],
+//         hits_layers.dxDy( layer_offset + i_hit ) );
+//       }
+//     }
+    
+//     average_number_of_hits_per_event += number_of_hits;
+//     debug_cout << "# of UT hits = " << number_of_hits << std::endl;
+//   }
+
+void check_scifi_events( const SciFi::HitsSoA *hits_layers_events,
+		      const uint32_t n_hits_layers_events[][SciFi::Constants::n_zones],
+		      const int n_events ) {
+
+  float average_number_of_hits_per_event = 0;
+  
+  for ( int i_event = 0; i_event < n_events; ++i_event ) {
+    // sanity checks
+    float number_of_hits = 0;
+
+    for ( int i_layer = 0; i_layer < SciFi::Constants::n_zones; ++i_layer ) {
+      debug_cout << "checks on layer " << i_layer << ", with " << n_hits_layers_events[i_event][i_layer] << " hits" << std::endl;
+      number_of_hits += n_hits_layers_events[i_event][i_layer];
+      int layer_offset = hits_layers_events[i_event].layer_offset[i_layer];
+      for ( int i_hit = 0; i_hit < 3; ++i_hit ) {
+	printf("\t at hit %u, x = %f, z = %f, w = %f, dxdy = %f, dzdy = %f, yMin = %f, yMax = %f, LHCbID = %x, planeCode = %i, hitZone = %i \n",
+	       i_hit,
+	       hits_layers_events[i_event].m_x[ layer_offset + i_hit ],
+	       hits_layers_events[i_event].m_z[ layer_offset + i_hit ],
+	       hits_layers_events[i_event].m_w[ layer_offset + i_hit ],
+	       hits_layers_events[i_event].m_dxdy[ layer_offset + i_hit ],
+	       hits_layers_events[i_event].m_dzdy[ layer_offset + i_hit ],
+	       hits_layers_events[i_event].m_yMin[ layer_offset + i_hit ],
+	       hits_layers_events[i_event].m_yMax[ layer_offset + i_hit ],
+               hits_layers_events[i_event].m_LHCbID[ layer_offset + i_hit ],
+               hits_layers_events[i_event].m_planeCode[layer_offset + i_hit ],
+               hits_layers_events[i_event].m_hitZone[layer_offset + i_hit ] );
+      }
+    }
+
+    
+    average_number_of_hits_per_event += number_of_hits;
+    debug_cout << "# of SciFi hits = " << number_of_hits << std::endl;
+    
+  }
+
+  average_number_of_hits_per_event = average_number_of_hits_per_event / n_events;
+  debug_cout << "average # of SciFi hits / event = " << average_number_of_hits_per_event << std::endl;
+    
+  
+}
+
+void check_muon_events( const Muon::HitsSoA * muon_station_hits,
+  const int hits_to_out,
+  const int n_events ){
+
+  float average_number_of_hits_per_event = 0;
+
+  for ( int i_event = 0; i_event < n_events; ++i_event ) {
+
+    float number_of_hits_per_event = 0;
+
+    for ( int i_station = 0; i_station < Muon::Constants::n_stations; ++i_station ) {
+
+      const int station_offset = muon_station_hits[i_event].m_station_offsets[i_station];
+      const int number_of_hits = muon_station_hits[i_event].m_number_of_hits_per_station[i_station];
+      number_of_hits_per_event += number_of_hits;
+
+      debug_cout << "checks on station " << i_station << ", with" << number_of_hits << " hits" << std::endl;
+      for ( int i_hit = 0; i_hit < hits_to_out; ++i_hit ) {
+        printf("\t at hit %u, tile = %i, x = %f, dx = %f, y = %f, dy = %f, z = %f, dz = %f, uncrossed = %i, time = %x, delta_time = %i, cluster_size = %i \n", 
+          i_hit,
+          muon_station_hits->m_tile[ station_offset + i_hit ],
+          muon_station_hits->m_x[ station_offset + i_hit ],
+          muon_station_hits->m_dx[ station_offset + i_hit ],
+          muon_station_hits->m_y[ station_offset + i_hit ],
+          muon_station_hits->m_dy[ station_offset + i_hit ],
+          muon_station_hits->m_z[ station_offset + i_hit ],
+          muon_station_hits->m_dz[ station_offset + i_hit ],
+          muon_station_hits->m_uncrossed[ station_offset + i_hit ],
+          muon_station_hits->m_time[ station_offset + i_hit ],
+          muon_station_hits->m_delta_time[ station_offset + i_hit ],
+          muon_station_hits->m_cluster_size[ station_offset + i_hit ]
+          );
+      }
+      fflush(stdout);
+    }
+
+    average_number_of_hits_per_event += number_of_hits_per_event;
+    debug_cout << "# of Muon hits = " << number_of_hits_per_event << std::endl;
+  }
+
+  average_number_of_hits_per_event = average_number_of_hits_per_event / n_events;
+  debug_cout << "average # of Muon hits / event = " << average_number_of_hits_per_event << std::endl;
+}
+
 /**
  * @brief Obtains results statistics.
  */

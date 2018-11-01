@@ -29,6 +29,8 @@
 #include "Timer.h"
 #include "StreamWrapper.cuh"
 #include "Constants.cuh"
+#include "MuonDefinitions.cuh"
+#include "MuonFeatures.h"
 
 void printUsage(char* argv[]){
   std::cerr << "Usage: "
@@ -36,6 +38,7 @@ void printUsage(char* argv[]){
     << std::endl << " -f {folder containing directories with raw bank binaries for every sub-detector}"
     << std::endl << " -g {folder containing detector configuration}"
     << std::endl << " -d {folder containing .bin files with MC truth information}"
+    << std::endl << " -a {folder containnig bin files with Muon raw bank informatiom}"
     << std::endl << " -n {number of events to process}=0 (all)"
     << std::endl << " -o {offset of events from which to start}=0 (beginning)"
     << std::endl << " -t {number of threads / streams}=1"
@@ -52,10 +55,13 @@ void printUsage(char* argv[]){
 
 int main(int argc, char *argv[])
 {
+  std::string folder_name_velopix_raw;
+  std::string folder_name_UT_raw = "";
+  std::string folder_name_scifi_hits = "";
+  std::string folder_name_muon_hits = "";
   std::string folder_name_raw_banks = "../input/minbias/banks/";
   std::string folder_name_MC = "../input/minbias/MC_info/";
   std::string folder_name_detector_configuration = "../input/detector_configuration/";
-  uint number_of_events_requested = 0;
   uint start_event_offset = 0;
   uint tbb_threads = 1;
   uint number_of_repetitions = 1;
@@ -68,8 +74,11 @@ int main(int argc, char *argv[])
   size_t reserve_mb = 1024;
 
   signed char c;
-  while ((c = getopt(argc, argv, "f:d:n:o:t:r:pha:b:d:v:c:k:m:g:x")) != -1) {
+  while ((c = getopt(argc, argv, "a:f:d:u:s:n:o:t:r:pha:b:d:v:c:k:m:g:x:")) != -1) {
     switch (c) {
+    case 'a':
+      folder_name_muon_hits = std::string(optarg);
+      break;
     case 'f':
       folder_name_raw_banks = std::string(optarg);
       break;
@@ -124,6 +133,7 @@ int main(int argc, char *argv[])
     if (folder_name_raw_banks.empty()) missing_folder = "raw banks";
     else if (folder_name_detector_configuration.empty()) missing_folder = "detector geometry";
     else if (folder_name_MC.empty() && do_check) missing_folder = "Monte Carlo";
+    else if (folder_name_muon_hits.empty()) missing_folder = "muon raw events";
 
     error_cout << "No folder for " << missing_folder << " specified" << std::endl;
     printUsage(argv);
@@ -143,6 +153,7 @@ int main(int argc, char *argv[])
     << " folder containing directories with raw bank binaries for every sub-detector (-f): " << folder_name_raw_banks << std::endl
     << " folder with detector configuration (-g): " << folder_name_detector_configuration << std::endl
     << " folder with MC truth input (-d): " << folder_name_MC << std::endl
+    << " folder with muon raw events (-a): " << folder_name_muon_hits << std::endl
     << " run checkers (-c): " << do_check << std::endl
     << " number of files (-n): " << number_of_events_requested << std::endl
     << " start event offset (-o): " << start_event_offset << std::endl
@@ -162,6 +173,40 @@ int main(int argc, char *argv[])
   std::string folder_name_velopix_raw = folder_name_raw_banks + "VP"; 
   number_of_events_requested = get_number_of_events_requested(
     number_of_events_requested, folder_name_velopix_raw);
+
+  // Read SciFi hits
+  std::vector<char> scifi_events;
+  std::vector<unsigned int> scifi_event_offsets;
+  verbose_cout << "Reading SciFi hits for " << number_of_events_requested << " events " << std::endl;
+  read_folder( folder_name_scifi_hits, number_of_events_requested,
+               scifi_events, scifi_event_offsets,
+               start_event_offset );
+
+  SciFi::HitsSoA *scifi_hits_events = new SciFi::HitsSoA[number_of_events_requested];
+  uint32_t scifi_n_hits_layers_events[number_of_events_requested][SciFi::Constants::n_zones];
+  read_scifi_events_into_arrays( scifi_hits_events, scifi_n_hits_layers_events,
+                              scifi_events, scifi_event_offsets, number_of_events_requested );
+  //check_scifi_events( scifi_hits_events, scifi_n_hits_layers_events, number_of_events );
+
+  // Read muon hits
+  std::vector<char> muon_events;
+  std::vector<unsigned int> muon_event_offsets;
+  verbose_cout << "Reading Muon hits for " << number_of_events_requested << " events " << std::endl;
+  read_folder( folder_name_muon_hits, number_of_events_requested,
+               muon_events, muon_event_offsets, start_event_offset);
+  std::vector<Muon::HitsSoA> muon_hits_events(number_of_events_requested);
+  read_muon_events_into_arrays(muon_hits_events.data(), muon_events, 
+                               muon_event_offsets, number_of_events_requested);
+
+  const int hits_to_out = 3;
+  check_muon_events(muon_hits_events.data(), hits_to_out, number_of_events_requested);
+  auto muTrack = new State(0,0,1,1,1);
+  std::vector<double> features = calcBDT(*muTrack, muon_hits_events[0]);
+  for(auto f : features) {
+      std::cout << f << " ";
+  }
+  std::cout<<std::endl;
+  delete muTrack;
 
   std::string folder_name_UT_raw = folder_name_raw_banks + "UT";
   std::string folder_name_SciFi_raw = folder_name_raw_banks + "FTCluster";
