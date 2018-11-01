@@ -10,7 +10,8 @@ if(NOT CMAKE_BUILD_TYPE)
 endif(NOT CMAKE_BUILD_TYPE)
 MESSAGE(STATUS "CMAKE_BUILD_TYPE: " ${CMAKE_BUILD_TYPE})
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14 -march=native")
+set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=native")
 set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "-O3 -g -DNDEBUG")
 set(CMAKE_CXX_FLAGS_RELEASE "-O3 -DNDEBUG")
 set(CMAKE_CXX_FLAGS_DEBUG "-O0 -g -DDEBUG")
@@ -54,6 +55,8 @@ set(CUDA_NVCC_FLAGS "${CUDA_BUILD_TYPE}--use_fast_math;--expt-relaxed-constexpr;
 add_subdirectory(cuda)
 add_subdirectory(stream)
 add_subdirectory(checker)
+add_subdirectory(x86/UT/PrVeloUT)
+add_subdirectory(x86/SciFi)
 add_subdirectory(x86/velo/clustering)
 add_subdirectory(x86/veloUT/PrVeloUT)
 add_subdirectory(catboost)
@@ -63,12 +66,14 @@ include_directories(main/include)
 include_directories(x86/velo/clustering/include)
 include_directories(cuda/UT/common/include)
 include_directories(cuda/UT/PrVeloUT/include)
+include_directories(cuda/UT/UTDecoding/include)
 include_directories(cuda/velo/common/include)
 include_directories(cuda/velo/calculate_phi_and_sort/include)
 include_directories(cuda/velo/consolidate_tracks/include)
 include_directories(cuda/velo/mask_clustering/include)
 include_directories(cuda/velo/search_by_triplet/include)
 include_directories(cuda/velo/simplified_kalman_filter/include)
+include_directories(cuda/SciFi/common/include)
 include_directories(cuda/utils/prefix_sum/include)
 include_directories(cuda/event_model/velo/include)
 include_directories(cuda/event_model/common/include)
@@ -76,6 +81,10 @@ include_directories(checker/tracking/include)
 include_directories(stream/sequence/include)
 include_directories(catboost/include)
 
+include_directories(x86/SciFi/include)
+include_directories(cuda/SciFi/PrForward/include)
+include_directories(cuda/UT/UTDecoding/include)
+  
 # Files from source directories
 file(GLOB main_sources "main/src/*")
 
@@ -88,10 +97,11 @@ if ( ROOT_FOUND )
     Utils
     Velo
     UT
+    SciFi
     x86VeloUT
+    x86Forward
     Stream
     x86Clustering
-    SciFi
     TrackChecking
     CheckClustering
     Catboost
@@ -102,10 +112,11 @@ else()
     Utils
     Velo
     UT
+    SciFi
     x86VeloUT
+    x86Forward
     Stream
     x86Clustering
-    SciFi
     TrackChecking
     CheckClustering
     Catboost)

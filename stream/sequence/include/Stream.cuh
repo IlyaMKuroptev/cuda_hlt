@@ -14,29 +14,25 @@
 #include "Catboost.h"
 #include "TestCatboost.h"
 #include "BaseDynamicScheduler.cuh"
+#include "DynamicScheduler.cuh"
 #include "SequenceSetup.cuh"
-#include "PrVeloUTMagnetToolDefinitions.h"
 #include "Constants.cuh"
-#include "run_VeloUT_CPU.h"
 #include "VeloEventModel.cuh"
 #include "UTDefinitions.cuh"
+#include "RuntimeOptions.h"
+#include "EstimateInputSize.cuh"
+#include "HostBuffers.cuh"
+#include "SequenceVisitor.cuh"
 
 class Timer;
 
 struct Stream {
   // Sequence and arguments
-  sequence_t sequence;
-  argument_tuple_t arguments;
-
-  // Sequence and argument names
-  std::array<std::string, std::tuple_size<algorithm_tuple_t>::value> sequence_names;
-  std::array<std::string, std::tuple_size<argument_tuple_t>::value> argument_names;
+  sequence_t sequence_tuple;
 
   // Stream datatypes
-  cudaStream_t stream;
+  cudaStream_t cuda_stream;
   cudaEvent_t cuda_generic_event;
-  cudaEvent_t cuda_event_start;
-  cudaEvent_t cuda_event_stop;
   uint stream_number;
 
   // Launch options
@@ -80,29 +76,25 @@ struct Stream {
   const NCatBoostFbs::TObliviousTrees* ObliviousTrees;
 
   // Dynamic scheduler
-  BaseDynamicScheduler scheduler;
+  DynamicScheduler<sequence_t, argument_tuple_t> scheduler;
 
-  // GPU pointers
-  char* dev_velo_geometry;
-  char* dev_ut_boards;
-  char* dev_ut_geometry;
-  char* dev_scifi_geometry;
-  char* dev_base_pointer;
-  PrUTMagnetTool* dev_ut_magnet_tool;
+  // Host buffers
+  HostBuffers host_buffers;
 
   // Monte Carlo folder name
   std::string folder_name_MC;
   uint start_event_offset;
 
+  // GPU Memory base pointer
+  char* dev_base_pointer;
+
   // Constants
   Constants constants;
 
+  // Visitors for sequence algorithms
+  SequenceVisitor sequence_visitor;
+
   cudaError_t initialize(
-    const std::vector<char>& velopix_geometry,
-    const std::vector<char>& ut_boards,
-    const std::vector<char>& ut_geometry,
-    const std::vector<char>& ut_magnet_tool,
-    const std::vector<char>& scifi_geometry,
     const uint max_number_of_events,
     const bool param_do_check,
     const bool param_do_simplified_kalman_filter,
@@ -115,26 +107,12 @@ struct Stream {
     const Constants& param_constants
   );
 
-  cudaError_t run_sequence(
-    const uint i_stream,
-    const char* host_velopix_events,
-    const uint* host_velopix_event_offsets,
-    const size_t host_velopix_events_size,
-    const size_t host_velopix_event_offsets_size,
-    const char* host_ut_events,
-    const uint* host_ut_event_offsets,
-    const size_t host_ut_events_size,
-    const size_t host_ut_event_offsets_size,
-    char* host_scifi_events,
-    uint* host_scifi_event_offsets,
-    const size_t scifi_events_size,
-    const size_t scifi_event_offsets_size,
-    const uint number_of_events,
-    const uint number_of_repetitions
+  void run_monte_carlo_test(
+    const uint number_of_events_requested
   );
+  
 
-  void print_timing(
-    const uint number_of_events,
-    const std::vector<std::pair<std::string, float>>& times
+  cudaError_t run_sequence(
+    const RuntimeOptions& runtime_options
   );
 };

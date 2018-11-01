@@ -1,5 +1,9 @@
 #pragma once
 
+#include <iostream>
+#include "ArgumentEnum.cuh"
+#include "ConfiguredSequence.cuh"
+
 #include "CalculatePhiAndSort.cuh"
 #include "ConsolidateTracks.cuh"
 #include "MaskedVeloClustering.cuh"
@@ -72,10 +76,11 @@ constexpr auto sequence_algorithms() {
  */
 using algorithm_tuple_t = decltype(make_algorithm_tuple(sequence_algorithms()));
 
-/**
- * Sequence type.
- */
-using sequence_t = Sequence<algorithm_tuple_t>;
+// Prepared for C++17 variant
+// template<typename T>
+// auto transition(const T& state) {
+//   return typename std::tuple_element<tuple_index<T, sequence_tuple_n>::value + 1, sequence_tuple_n>::type{};
+// }
 
 /**
  * @brief Argument tuple definition. All arguments and their types should
@@ -111,12 +116,14 @@ using argument_tuple_t = std::tuple<
   // Error: Internal Compiler Error (codegen): "there was an error in verifying the lgenfe output!"
   Argument<arg::dev_ut_raw_input, uint>,
   Argument<arg::dev_ut_raw_input_offsets, uint>,
+  Argument<arg::dev_ut_hit_offsets, uint>,
   Argument<arg::dev_ut_hit_count, uint>,
   Argument<arg::dev_prefix_sum_auxiliary_array_3, uint>,
   Argument<arg::dev_ut_hits, uint>,
   Argument<arg::dev_ut_hit_permutations, uint>,
   Argument<arg::dev_veloUT_tracks, VeloUTTracking::TrackUT>,
   Argument<arg::dev_atomics_veloUT, int>,
+
   Argument<arg::dev_scifi_raw_input_offsets, uint>,
   Argument<arg::dev_scifi_hit_count, uint>,
   Argument<arg::dev_prefix_sum_auxiliary_array_4, uint>,
@@ -131,12 +138,11 @@ using argument_tuple_t = std::tuple<
   Argument<arg::dev_leaf_values, double*>,
   Argument<arg::dev_tree_sizes, int>,
   Argument<arg::dev_catboost_output, float>
+  Argument<arg::dev_scifi_hits, uint>,
+  Argument<arg::dev_scifi_raw_input, char>,
+  Argument<arg::dev_scifi_tracks, SciFi::Track>,
+  Argument<arg::dev_n_scifi_tracks, uint>
 >;
-
-/**
- * @brief Returns an array with names for every element in the sequence.
- */
-std::array<std::string, std::tuple_size<algorithm_tuple_t>::value> get_sequence_names();
 
 /**
  * @brief Returns an array with names for every argument.
@@ -165,13 +171,6 @@ std::vector<std::vector<int>> get_sequence_dependencies();
  *          All output arguments should be returned here.
  */
 std::vector<int> get_sequence_output_arguments();
-
-/**
- * @brief Checks the sequence tuple is defined sequentially and
- *        starting at 0.
- */
-static_assert(check_tuple_indices<algorithm_tuple_t>(),
-  "Sequence tuple indices are not sequential starting at zero");
 
 /**
  * @brief Checks the argument tuple is defined sequentially and

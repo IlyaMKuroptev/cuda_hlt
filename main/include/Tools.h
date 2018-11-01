@@ -13,6 +13,7 @@
 #include "VeloEventModel.cuh"
 #include "ClusteringDefinitions.cuh"
 #include "VeloUTDefinitions.cuh"
+#include "SciFiDefinitions.cuh"
 #include "Tracks.h"
 #include "InputTools.h"
 #include "velopix-input-reader.h"
@@ -21,17 +22,10 @@
 #include "VeloConsolidated.cuh"
 
 bool check_velopix_events(
-  const std::vector<char> events,
-  const std::vector<unsigned int> event_offsets,
+  const std::vector<char>& events,
+  const std::vector<uint>& event_offsets,
   int n_events
 );
-
-// void check_ut_events(
-//   const VeloUTTracking::HitsSoA *hits_layers_events,
-//   const int n_events
-// );
-
-void read_UT_magnet_tool( PrUTMagnetTool* host_magnet_tool );
 
 std::map<std::string, float> calcResults(
   std::vector<float>& times
@@ -52,6 +46,21 @@ trackChecker::Tracks prepareVeloUTTracksEvent(
 std::vector< trackChecker::Tracks > prepareVeloUTTracks(
   const VeloUTTracking::TrackUT* veloUT_tracks,
   const int* n_veloUT_tracks,
+  const int number_of_events
+);
+
+trackChecker::Tracks prepareForwardTracksVeloUTOnly(
+  std::vector< VeloUTTracking::TrackUT > forward_tracks
+); 
+
+trackChecker::Tracks prepareForwardTracksEvent(
+  SciFi::Track forward_tracks[SciFi::max_tracks],
+  const uint n_forward_tracks
+);
+
+std::vector< trackChecker::Tracks > prepareForwardTracks(
+  SciFi::Track* scifi_tracks,
+  uint* n_scifi_tracks,
   const int number_of_events
 );
 

@@ -1,8 +1,8 @@
 #pragma once
 
-// #include "cuda_runtime.h"
-// #include "device_launch_parameters.h"
-// #include "Common.h"
+#include "cuda_runtime.h"
+#include "device_launch_parameters.h"
+#include "Common.h"
 #include "VeloDefinitions.cuh"
 
 #include "assert.h"
@@ -16,6 +16,7 @@ static constexpr int num_atomics = 2;
 */
 static constexpr uint n_layers           = 4;
 static constexpr uint n_ut_hit_variables = 8;
+static constexpr uint n_regions_in_layer = 3;
 
 /* For now, the planeCode is an attribute of every hit,
    -> check which information
@@ -35,7 +36,7 @@ struct TrackUT {
   unsigned int LHCbIDs[VeloUTTracking::max_track_size];
   float qop;
   unsigned short hitsNum = 0;
-  
+  unsigned short veloTrackIndex;
   
   __host__ __device__ void addLHCbID( unsigned int id ) {
     LHCbIDs[hitsNum++] = id;
